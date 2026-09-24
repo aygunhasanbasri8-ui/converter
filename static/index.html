@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video İndirici</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:  #E7E9E3;
+  --panel:  #F8F9F5;
+  --ink:    #171C1A;
+  --muted:  #6C756F;
+  --rule:   #D0D5C9;
+  --accent: #2438D8;
+  --accent-soft: #2438D81a;
+  --step: 4px;
+}
+body[data-mode="mp3"] {
+  --accent: #C81E56;
+  --accent-soft: #C81E561a;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  padding: clamp(24px, 6vw, 72px) 20px 40px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  display: flex;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+.console { width: 100%; max-width: 620px; }
+
+.eyebrow {
+  margin: 0 0 20px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eyebrow b { color: var(--accent); font-weight: 500; }
+
+h1 {
+  margin: 0 0 14px;
+  font-family: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  font-stretch: 125%;
+  font-weight: 800;
+  font-size: clamp(34px, 7.5vw, 56px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin: 0 0 36px;
+  max-width: 42ch;
+  color: var(--muted);
+}
+
+.deck {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  padding: clamp(20px, 4vw, 28px);
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+#url {
+  width: 100%;
+  padding: 14px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 14px;
+}
+#url::placeholder { color: #A7AEA6; }
+#url:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.mode {
+  appearance: none;
+  text-align: left;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.mode:hover { border-color: var(--ink); }
+.mode:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mode strong {
+  display: block;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.mode span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.mode[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.mode[aria-pressed="true"] strong { color: var(--accent); }
+
+.go {
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: filter .15s;
+}
+.go:hover { filter: brightness(1.12); }
+.go:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.go[disabled] { background: var(--rule); color: var(--muted); cursor: default; filter: none; }
+
+.readout {
+  margin-top: 10px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: clamp(20px, 4vw, 28px);
+}
+.readout[hidden] { display: none; }
+
+.meta { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 22px; }
+.meta img {
+  width: 108px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--rule);
+  flex-shrink: 0;
+}
+.meta img[hidden] { display: none; }
+.meta-title {
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.meta-sub {
+  margin-top: 4px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.strip { margin-bottom: 14px; }
+
+.perf {
+  height: 7px;
+  background-image: repeating-linear-gradient(
+    to right, var(--rule) 0 5px, transparent 5px 13px
+  );
+}
+.perf-top { margin-bottom: 5px; }
+.perf-bottom { margin-top: 5px; }
+
+body[data-mode="mp3"] .perf { visibility: hidden; }
+
+.bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 56px;
+}
+.bars i {
+  flex: 1;
+  display: block;
+  height: 100%;
+  background: var(--rule);
+  transition: background .18s linear;
+}
+body[data-mode="mp3"] .bars i { height: calc(var(--h) * 100%); }
+.bars i.on { background: var(--accent); }
+
+.strip.waiting .bars i {
+  animation: sweep 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 18ms);
+}
+@keyframes sweep {
+  0%, 100% { background: var(--rule); }
+  50%      { background: var(--accent); }
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stats .state { color: var(--ink); }
+.stats .state.bad { color: #B3261E; }
+
+.save {
+  display: block;
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-stretch: 125%;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.save:hover { filter: brightness(1.12); }
+.save[hidden] { display: none; }
+
+.again {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+}
+.again:hover { border-color: var(--ink); color: var(--ink); }
+.again[hidden] { display: none; }
+
+.fineprint {
+  margin-top: 28px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+
+<body data-mode="mp4">
+<main class="console">
+
+  <p class="eyebrow">yerel makinede çalışır · <b id="engine">mp4 · en yüksek kalite</b></p>
+  <h1>Bağlantıyı yapıştır,<br>dosyayı al.</h1>
+  <p class="lede">Bir video adresi ver, biçimi seç. Dosya senin makinende hazırlanır, hiçbir yere yüklenmez.</p>
+
+  <section class="deck">
+    <label class="label" for="url">Video bağlantısı</label>
+    <input id="url" type="url" inputmode="url" spellcheck="false" autocomplete="off"
+           placeholder="https://...">
+
+    <div class="modes" role="group" aria-label="Biçim">
+      <button type="button" class="mode" data-format="mp4" aria-pressed="true">
+        <strong>MP4</strong><span>video + ses</span>
+      </button>
+      <button type="button" class="mode" data-format="mp3" aria-pressed="false">
+        <strong>MP3</strong><span>ses · 192 kbps</span>
+      </button>
+    </div>
+
+    <button type="button" class="go" id="go">İndir</button>
+  </section>
+
+  <section class="readout" id="readout" hidden aria-live="polite">
+    <div class="meta">
+      <img id="thumb" alt="" hidden>
+      <div>
+        <div class="meta-title" id="title">Bağlantı okunuyor…</div>
+        <div class="meta-sub" id="sub"></div>
+      </div>
+    </div>
+
+    <div class="strip" id="strip">
+      <div class="perf perf-top"></div>
+      <div class="bars" id="bars"></div>
+      <div class="perf perf-bottom"></div>
+    </div>
+
+    <div class="stats">
+      <span class="state" id="state">Sıraya alındı</span>
+      <span id="pct"></span>
+      <span id="size"></span>
+      <span id="rate"></span>
+    </div>
+
+    <a class="save" id="save" hidden download>Dosyayı kaydet</a>
+    <button type="button" class="again" id="again" hidden>Yeni indirme</button>
+  </section>
+
+  <p class="fineprint">
+    Yalnızca kendine ait ya da indirmesine izin verilen içerikler için kullan.<br>
+    Motor: yt-dlp + ffmpeg
+  </p>
+
+</main>
+
+<script>
+const BAR_COUNT = 72;
+const $ = (id) => document.getElementById(id);
+
+const el = {
+  url: $("url"), go: $("go"), readout: $("readout"), bars: $("bars"),
+  strip: $("strip"), state: $("state"), pct: $("pct"), size: $("size"),
+  rate: $("rate"), title: $("title"), sub: $("sub"), thumb: $("thumb"),
+  save: $("save"), again: $("again"), engine: $("engine"),
+};
+
+let format = "mp4";
+let poller = null;
+let infoTimer = null;
+
+for (let i = 0; i < BAR_COUNT; i++) {
+  const wave = Math.sin(i * 0.5) * Math.sin(i * 0.13 + 1.2) * Math.sin(i * 0.07);
+  const h = Math.min(1, Math.max(0.16, 0.55 + wave * 0.9));
+  const bar = document.createElement("i");
+  bar.style.setProperty("--h", h.toFixed(3));
+  bar.style.setProperty("--i", i);
+  el.bars.appendChild(bar);
+}
+const bars = [...el.bars.children];
+
+function paint(percent) {
+  const filled = percent == null ? -1 : Math.round((percent / 100) * BAR_COUNT);
+  el.strip.classList.toggle("waiting", percent == null);
+  bars.forEach((b, i) => b.classList.toggle("on", i < filled));
+}
+
+document.querySelectorAll(".mode").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    format = btn.dataset.format;
+    document.body.dataset.mode = format;
+    document.querySelectorAll(".mode").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b === btn)));
+    el.engine.textContent = format === "mp3"
+      ? "mp3 · 192 kbps" : "mp4 · en yüksek kalite";
+  });
+});
+
+const mb = (n) => n == null ? null : (n / 1048576).toFixed(1) + " MB";
+const clock = (s) => {
+  if (s == null) return null;
+  s = Math.round(s);
+  const m = Math.floor(s / 60), r = String(s % 60).padStart(2, "0");
+  return m + ":" + r;
+};
+
+el.url.addEventListener("input", () => {
+  clearTimeout(infoTimer);
+  const url = el.url.value.trim();
+  if (!/^https?:\/\/\S{6,}/.test(url)) return;
+  infoTimer = setTimeout(() => preview(url), 700);
+});
+
+async function preview(url) {
+  try {
+    const res = await fetch("/api/info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    el.readout.hidden = false;
+    el.title.textContent = data.title || "Başlıksız";
+    el.sub.textContent = [data.uploader, clock(data.duration)]
+      .filter(Boolean).join("  ·  ");
+    if (data.thumbnail) { el.thumb.src = data.thumbnail; el.thumb.hidden = false; }
+    el.state.textContent = "İndirmeye hazır";
+    paint(0);
+  } catch (_) {}
+}
+
+el.go.addEventListener("click", start);
+el.url.addEventListener("keydown", (e) => { if (e.key === "Enter") start(); });
+el.again.addEventListener("click", reset);
+
+async function start() {
+  const url = el.url.value.trim();
+  if (!url) { el.url.focus(); return; }
+
+  el.go.disabled = true;
+  el.go.textContent = "Çalışıyor";
+  el.readout.hidden = false;
+  el.save.hidden = true;
+  el.again.hidden = true;
+  el.state.classList.remove("bad");
+  el.state.textContent = "Sıraya alındı";
+  el.pct.textContent = el.size.textContent = el.rate.textContent = "";
+  paint(null);
+
+  try {
+    const res = await fetch("/api/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, format }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || "İstek reddedildi.");
+    const { job_id } = await res.json();
+    poller = setInterval(() => track(job_id), 600);
+  } catch (err) {
+    fail(err.message);
+  }
+}
+
+async function track(jobId) {
+  let job;
+  try {
+    const res = await fetch("/api/progress/" + jobId);
+    if (!res.ok) throw new Error("İş kaydı bulunamadı.");
+    job = await res.json();
+  } catch (err) {
+    return fail(err.message);
+  }
+
+  if (job.state === "downloading") {
+    el.state.textContent = "İndiriliyor";
+    paint(job.percent);
+    el.pct.textContent = job.percent != null ? "%" + job.percent : "";
+    el.size.textContent = job.total ? mb(job.downloaded) + " / " + mb(job.total) : "";
+    el.rate.textContent = [
+      job.speed ? mb(job.speed) + "/sn" : null,
+      job.eta != null ? "kalan " + clock(job.eta) : null,
+    ].filter(Boolean).join("  ·  ");
+  } else if (job.state === "processing") {
+    el.state.textContent = format === "mp3"
+      ? "MP3'e dönüştürülüyor" : "Ses ve görüntü birleştiriliyor";
+    el.rate.textContent = "";
+    paint(null);
+  } else if (job.state === "ready") {
+    clearInterval(poller);
+    paint(100);
+    el.state.textContent = "Hazır";
+    el.pct.textContent = "%100";
+    el.size.textContent = mb(job.size);
+    el.rate.textContent = "";
+    if (job.title) el.title.textContent = job.title;
+    el.save.href = "/api/file/" + jobId;
+    el.save.setAttribute("download", job.filename || "");
+    el.save.hidden = false;
+    el.again.hidden = false;
+    el.go.disabled = false;
+    el.go.textContent = "İndir";
+  } else if (job.state === "error") {
+    clearInterval(poller);
+    fail(job.error || "İndirme tamamlanamadı.");
+  }
+}
+
+function fail(message) {
+  clearInterval(poller);
+  paint(0);
+  el.state.textContent = message;
+  el.state.classList.add("bad");
+  el.pct.textContent = el.size.textContent = el.rate.textContent = "";
+  el.again.hidden = false;
+  el.go.disabled = false;
+  el.go.textContent = "İndir";
+}
+
+function reset() {
+  el.readout.hidden = true;
+  el.thumb.hidden = true;
+  el.thumb.removeAttribute("src");
+  el.save.hidden = true;
+  el.again.hidden = true;
+  el.state.classList.remove("bad");
+  el.url.value = "";
+  el.url.focus();
+}
+</script>
+</body>
+</html>
