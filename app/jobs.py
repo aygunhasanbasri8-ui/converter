@@ -38,16 +38,19 @@ class JobStore:
             job = self._jobs.get(job_id)
             return dict(job) if job else None
 
-    def submit(self, job_id: str, task: Callable[[], None]) -> None:
+    def submit(self, task: Callable[[], None]) -> None:
         self._executor.submit(task)
 
     def remove_expired(self) -> None:
         now = time.time()
-        expired_ids: list[str] = []
         with self._lock:
-            for job_id, job in list(self._jobs.items()):
-                if now - job.get("updated_at", now) > self._ttl_seconds:
-                    expired_ids.append(job_id)
-                    del self._jobs[job_id]
+            expired_ids = [
+                job_id
+                for job_id, job in self._jobs.items()
+                if now - job.get("updated_at", now) > self._ttl_seconds
+            ]
+            for job_id in expired_ids:
+                del self._jobs[job_id]
+        # Disk silme yavaş olabilir, kilidi tutmadan yapıyoruz.
         for job_id in expired_ids:
             shutil.rmtree(self._download_dir / job_id, ignore_errors=True)

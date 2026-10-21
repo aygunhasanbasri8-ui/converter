@@ -5,6 +5,8 @@ ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class QuietLogger:
+    """yt-dlp'nin kendi çıktısını yutar; hatalar zaten istisna olarak geliyor."""
+
     def debug(self, message: str) -> None:
         return None
 
@@ -22,6 +24,7 @@ def readable_error(error: Exception) -> str:
     raw_message = ANSI_ESCAPE.sub("", str(error)).strip()
     message = raw_message.lower()
 
+    # Sıra önemli, ilk eşleşen kazanır.
     messages = (
         (("ffmpeg", "ffprobe"), "ffmpeg bulunamadi. Kurup PATH'e ekledikten sonra tekrar dene."),
         (("unsupported url", "is not a valid url"), "Bu bağlantı desteklenmiyor. Adresi kontrol et."),
