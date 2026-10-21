@@ -26,7 +26,7 @@ def readable_error(error: Exception) -> str:
 
     # Sıra önemli, ilk eşleşen kazanır.
     messages = (
-        (("ffmpeg", "ffprobe"), "ffmpeg bulunamadi. Kurup PATH'e ekledikten sonra tekrar dene."),
+        (("ffmpeg", "ffprobe"), "ffmpeg bulunamadı. Kurup PATH'e ekledikten sonra tekrar dene."),
         (("unsupported url", "is not a valid url"), "Bu bağlantı desteklenmiyor. Adresi kontrol et."),
         (("private video", "members-only"), "Video özel ya da üyelere kapalı, indirilemiyor."),
         (("video unavailable", "removed"), "Video yayından kalkmış görünüyor."),
