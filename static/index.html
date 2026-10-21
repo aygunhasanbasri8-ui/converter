@@ -86,7 +86,7 @@ h1 {
 
 #url {
   width: 100%;
-  padding: 14px 14px;
+  padding: 14px;
   border: 1px solid var(--rule);
   border-radius: 0;
   background: #fff;
@@ -143,22 +143,25 @@ h1 {
 }
 .mode[aria-pressed="true"] strong { color: var(--accent); }
 
-.go {
-  width: 100%;
-  padding: 16px;
-  border: 0;
+.go, .save {
   background: var(--accent);
   color: #fff;
-  cursor: pointer;
   font-family: "Archivo", system-ui, sans-serif;
   font-stretch: 125%;
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.go:hover, .save:hover { filter: brightness(1.12); }
+
+.go {
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  cursor: pointer;
   transition: filter .15s;
 }
-.go:hover { filter: brightness(1.12); }
 .go:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .go[disabled] { background: var(--rule); color: var(--muted); cursor: default; filter: none; }
 
@@ -168,7 +171,6 @@ h1 {
   background: var(--panel);
   padding: clamp(20px, 4vw, 28px);
 }
-.readout[hidden] { display: none; }
 
 .meta { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 22px; }
 .meta img {
@@ -178,7 +180,6 @@ h1 {
   background: var(--rule);
   flex-shrink: 0;
 }
-.meta img[hidden] { display: none; }
 .meta-title {
   font-weight: 500;
   line-height: 1.3;
@@ -244,19 +245,9 @@ body[data-mode="mp3"] .bars i { height: calc(var(--h) * 100%); }
   display: block;
   margin-top: 20px;
   padding: 15px;
-  background: var(--accent);
-  color: #fff;
   text-align: center;
   text-decoration: none;
-  font-family: "Archivo", system-ui, sans-serif;
-  font-stretch: 125%;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
-.save:hover { filter: brightness(1.12); }
-.save[hidden] { display: none; }
 
 .again {
   display: block;
@@ -271,7 +262,9 @@ body[data-mode="mp3"] .bars i { height: calc(var(--h) * 100%); }
   font-size: 14px;
 }
 .again:hover { border-color: var(--ink); color: var(--ink); }
-.again[hidden] { display: none; }
+
+/* display: block, hidden özniteliğini eziyor. */
+.save[hidden], .again[hidden] { display: none; }
 
 .fineprint {
   margin-top: 28px;
@@ -346,6 +339,10 @@ body[data-mode="mp3"] .bars i { height: calc(var(--h) * 100%); }
 
 <script>
 const BAR_COUNT = 72;
+const POLL_MS = 600;
+const PREVIEW_DELAY_MS = 700;
+const ENGINE_LABEL = { mp4: "mp4 · en yüksek kalite", mp3: "mp3 · 192 kbps" };
+
 const $ = (id) => document.getElementById(id);
 
 const el = {
@@ -359,6 +356,8 @@ let format = "mp4";
 let poller = null;
 let infoTimer = null;
 
+// Sabit yükseklikler, ama düz rampa yerine ses dalgası gibi dursun diye
+// birkaç sinüsü çarpıyoruz.
 for (let i = 0; i < BAR_COUNT; i++) {
   const wave = Math.sin(i * 0.5) * Math.sin(i * 0.13 + 1.2) * Math.sin(i * 0.07);
   const h = Math.min(1, Math.max(0.16, 0.55 + wave * 0.9));
@@ -369,6 +368,7 @@ for (let i = 0; i < BAR_COUNT; i++) {
 }
 const bars = [...el.bars.children];
 
+// percent null ise ilerleme bilinmiyor; şerit bekleme animasyonuna geçer.
 function paint(percent) {
   const filled = percent == null ? -1 : Math.round((percent / 100) * BAR_COUNT);
   el.strip.classList.toggle("waiting", percent == null);
@@ -381,8 +381,7 @@ document.querySelectorAll(".mode").forEach((btn) => {
     document.body.dataset.mode = format;
     document.querySelectorAll(".mode").forEach((b) =>
       b.setAttribute("aria-pressed", String(b === btn)));
-    el.engine.textContent = format === "mp3"
-      ? "mp3 · 192 kbps" : "mp4 · en yüksek kalite";
+    el.engine.textContent = ENGINE_LABEL[format];
   });
 });
 
@@ -390,34 +389,47 @@ const mb = (n) => n == null ? null : (n / 1048576).toFixed(1) + " MB";
 const clock = (s) => {
   if (s == null) return null;
   s = Math.round(s);
-  const m = Math.floor(s / 60), r = String(s % 60).padStart(2, "0");
-  return m + ":" + r;
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 };
+const joinDot = (parts) => parts.filter(Boolean).join("  ·  ");
 
+const postJson = (path, body) => fetch(path, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+function clearStats() {
+  el.pct.textContent = el.size.textContent = el.rate.textContent = "";
+}
+
+function setBusy(busy) {
+  el.go.disabled = busy;
+  el.go.textContent = busy ? "Çalışıyor" : "İndir";
+}
+
+// Her tuşta istek atmamak için yazma durulana kadar bekliyoruz.
 el.url.addEventListener("input", () => {
   clearTimeout(infoTimer);
   const url = el.url.value.trim();
   if (!/^https?:\/\/\S{6,}/.test(url)) return;
-  infoTimer = setTimeout(() => preview(url), 700);
+  infoTimer = setTimeout(() => preview(url), PREVIEW_DELAY_MS);
 });
 
 async function preview(url) {
   try {
-    const res = await fetch("/api/info", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
+    const res = await postJson("/api/info", { url });
     if (!res.ok) return;
     const data = await res.json();
     el.readout.hidden = false;
     el.title.textContent = data.title || "Başlıksız";
-    el.sub.textContent = [data.uploader, clock(data.duration)]
-      .filter(Boolean).join("  ·  ");
+    el.sub.textContent = joinDot([data.uploader, clock(data.duration)]);
     if (data.thumbnail) { el.thumb.src = data.thumbnail; el.thumb.hidden = false; }
     el.state.textContent = "İndirmeye hazır";
     paint(0);
-  } catch (_) {}
+  } catch (_) {
+    // Önizleme olmasa da indirme çalışır, kullanıcıyı bununla rahatsız etmiyoruz.
+  }
 }
 
 el.go.addEventListener("click", start);
@@ -428,25 +440,20 @@ async function start() {
   const url = el.url.value.trim();
   if (!url) { el.url.focus(); return; }
 
-  el.go.disabled = true;
-  el.go.textContent = "Çalışıyor";
+  setBusy(true);
   el.readout.hidden = false;
   el.save.hidden = true;
   el.again.hidden = true;
   el.state.classList.remove("bad");
   el.state.textContent = "Sıraya alındı";
-  el.pct.textContent = el.size.textContent = el.rate.textContent = "";
+  clearStats();
   paint(null);
 
   try {
-    const res = await fetch("/api/download", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, format }),
-    });
+    const res = await postJson("/api/download", { url, format });
     if (!res.ok) throw new Error((await res.json()).detail || "İstek reddedildi.");
     const { job_id } = await res.json();
-    poller = setInterval(() => track(job_id), 600);
+    poller = setInterval(() => track(job_id), POLL_MS);
   } catch (err) {
     fail(err.message);
   }
@@ -467,10 +474,10 @@ async function track(jobId) {
     paint(job.percent);
     el.pct.textContent = job.percent != null ? "%" + job.percent : "";
     el.size.textContent = job.total ? mb(job.downloaded) + " / " + mb(job.total) : "";
-    el.rate.textContent = [
+    el.rate.textContent = joinDot([
       job.speed ? mb(job.speed) + "/sn" : null,
       job.eta != null ? "kalan " + clock(job.eta) : null,
-    ].filter(Boolean).join("  ·  ");
+    ]);
   } else if (job.state === "processing") {
     el.state.textContent = format === "mp3"
       ? "MP3'e dönüştürülüyor" : "Ses ve görüntü birleştiriliyor";
@@ -488,10 +495,8 @@ async function track(jobId) {
     el.save.setAttribute("download", job.filename || "");
     el.save.hidden = false;
     el.again.hidden = false;
-    el.go.disabled = false;
-    el.go.textContent = "İndir";
+    setBusy(false);
   } else if (job.state === "error") {
-    clearInterval(poller);
     fail(job.error || "İndirme tamamlanamadı.");
   }
 }
@@ -501,10 +506,9 @@ function fail(message) {
   paint(0);
   el.state.textContent = message;
   el.state.classList.add("bad");
-  el.pct.textContent = el.size.textContent = el.rate.textContent = "";
+  clearStats();
   el.again.hidden = false;
-  el.go.disabled = false;
-  el.go.textContent = "İndir";
+  setBusy(false);
 }
 
 function reset() {

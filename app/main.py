@@ -80,10 +80,7 @@ def info(request: InfoRequest) -> dict[str, Any]:
 def start_download(request: DownloadRequest) -> dict[str, str]:
     job_id = uuid.uuid4().hex
     jobs.create(job_id, request.format)
-    jobs.submit(
-        job_id,
-        lambda: downloader.download(job_id, str(request.url), request.format),
-    )
+    jobs.submit(lambda: downloader.download(job_id, str(request.url), request.format))
     return {"job_id": job_id}
 
 
@@ -92,6 +89,7 @@ def progress(job_id: str) -> dict[str, Any]:
     job = jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="İş bulunamadı.")
+    # Sunucudaki tam yol istemciyi ilgilendirmiyor.
     job.pop("path", None)
     return job
 
