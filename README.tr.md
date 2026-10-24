@@ -10,6 +10,7 @@ yt-dlp, dönüştürmeyi ffmpeg yapıyor.
 
 ## Özellikler
 
+- MP4 için kalite seçimi (sitenin sunduklarından 1080p, 720p... ve tahmini boyut).
 - Bağlantıdan MP4 (en iyi video + ses) ya da MP3 (192 kbps) indirme.
 - Bağlantı yapıştırılınca başlık, yükleyen, süre ve kapak görselini gösterme.
 - İndirme ilerlemesi, hız ve kalan süre; MP3 dönüştürme ve MP4 birleştirme aşamaları ayrı gösterilir.
@@ -53,8 +54,8 @@ Kod stili ruff ile denetleniyor (`ruff check . && ruff format --check .`); GitHu
 | Metot | Yol | Açıklama |
 |---|---|---|
 | GET | `/` | Arayüz |
-| POST | `/api/info` | Gövde: `{"url": ...}`. Başlık, yükleyen, süre ve kapak görselini döner |
-| POST | `/api/download` | Gövde: `{"url": ..., "format": "mp4" \| "mp3"}`. `{"job_id": ...}` döner |
+| POST | `/api/info` | Gövde: `{"url": ...}`. Başlık, yükleyen, süre, kapak görseli ve `qualities` (mevcut çözünürlükler ve tahmini boyut) döner |
+| POST | `/api/download` | Gövde: `{"url": ..., "format": "mp4" \| "mp3", "quality": 720}`. `quality` MP4 için en yüksek çözünürlük (isteğe bağlı, MP3'te yok sayılır). `{"job_id": ...}` döner |
 | GET | `/api/progress/{job_id}` | İşin durumu (`queued`, `downloading`, `processing`, `ready`, `error`) ve ilerleme |
 | GET | `/api/events/{job_id}` | Aynı iş kaydı Server-Sent Events akışı olarak: her değişiklikte bir olay, iş `ready` ya da `error` olunca kapanır |
 | GET | `/api/file/{job_id}` | Hazır dosyayı indirir |

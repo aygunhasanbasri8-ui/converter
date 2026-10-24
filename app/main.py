@@ -21,7 +21,7 @@ from .config import (
     STATIC_DIR,
     ensure_directories,
 )
-from .downloader import DownloadService
+from .downloader import DownloadService, available_qualities
 from .errors import readable_error
 from .jobs import JobStore
 from .models import DownloadRequest, InfoRequest
@@ -73,6 +73,7 @@ def info(request: InfoRequest) -> dict[str, Any]:
         "uploader": data.get("uploader") or data.get("channel"),
         "duration": data.get("duration"),
         "thumbnail": data.get("thumbnail"),
+        "qualities": available_qualities(data),
     }
 
 
@@ -80,7 +81,7 @@ def info(request: InfoRequest) -> dict[str, Any]:
 def start_download(request: DownloadRequest) -> dict[str, str]:
     job_id = uuid.uuid4().hex
     jobs.create(job_id, request.format)
-    jobs.submit(lambda: downloader.download(job_id, str(request.url), request.format))
+    jobs.submit(lambda: downloader.download(job_id, str(request.url), request.format, request.quality))
     return {"job_id": job_id}
 
 

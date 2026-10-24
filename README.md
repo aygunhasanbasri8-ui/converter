@@ -12,6 +12,7 @@ and ffmpeg does the conversion.
 
 - Download from a link as MP4 (best video + audio) or MP3 (192 kbps).
 - Shows the title, uploader, duration and thumbnail as soon as a link is pasted.
+- Quality choice for MP4 (1080p, 720p, ... with an estimated size, listed from what the site offers).
 - Download progress, speed and remaining time; the MP3 conversion and MP4 merge steps are shown separately.
 - Jobs run in the background in a worker pool; extra ones wait in a queue.
 - Finished files are deleted automatically after one hour.
@@ -52,8 +53,8 @@ Style is checked with ruff (`ruff check . && ruff format --check .`); GitHub Act
 | Method | Path | Description |
 |---|---|---|
 | GET | `/` | The UI |
-| POST | `/api/info` | Body: `{"url": ...}`. Returns title, uploader, duration and thumbnail |
-| POST | `/api/download` | Body: `{"url": ..., "format": "mp4" \| "mp3"}`. Returns `{"job_id": ...}` |
+| POST | `/api/info` | Body: `{"url": ...}`. Returns title, uploader, duration, thumbnail and `qualities` (available heights with an estimated size) |
+| POST | `/api/download` | Body: `{"url": ..., "format": "mp4" \| "mp3", "quality": 720}`. `quality` is the maximum height for MP4 (optional, ignored for MP3). Returns `{"job_id": ...}` |
 | GET | `/api/progress/{job_id}` | Job state (`queued`, `downloading`, `processing`, `ready`, `error`) and progress |
 | GET | `/api/events/{job_id}` | The same job record as a Server-Sent Events stream: one event per change, closed when the job is `ready` or `error` |
 | GET | `/api/file/{job_id}` | Downloads the finished file |
