@@ -265,6 +265,16 @@ body[data-mode="mp3"] .bars i { height: calc(var(--h) * 100%); }
 
 /* display: block, hidden özniteliğini eziyor. */
 .save[hidden], .again[hidden] { display: none; }
+.quality { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.quality[hidden], body[data-mode="mp3"] .quality { display: none; }
+.quality select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
 
 .fineprint {
   margin-top: 28px;
@@ -300,6 +310,11 @@ body[data-mode="mp3"] .bars i { height: calc(var(--h) * 100%); }
         <strong>MP3</strong><span>ses · 192 kbps</span>
       </button>
     </div>
+
+    <label class="quality" id="quality-wrap" hidden>
+      <span class="label">Kalite</span>
+      <select id="quality"></select>
+    </label>
 
     <button type="button" class="go" id="go">İndir</button>
   </section>
@@ -350,6 +365,7 @@ const el = {
   strip: $("strip"), state: $("state"), pct: $("pct"), size: $("size"),
   rate: $("rate"), title: $("title"), sub: $("sub"), thumb: $("thumb"),
   save: $("save"), again: $("again"), engine: $("engine"),
+  quality: $("quality"), qualityWrap: $("quality-wrap"),
 };
 
 let format = "mp4";
@@ -426,11 +442,22 @@ async function preview(url) {
     el.title.textContent = data.title || "Başlıksız";
     el.sub.textContent = joinDot([data.uploader, clock(data.duration)]);
     if (data.thumbnail) { el.thumb.src = data.thumbnail; el.thumb.hidden = false; }
+    fillQualities(data.qualities || []);
     el.state.textContent = "İndirmeye hazır";
     paint(0);
   } catch (_) {
     // Önizleme olmasa da indirme çalışır, kullanıcıyı bununla rahatsız etmiyoruz.
   }
+}
+
+// Tek seçenek varsa (ya da site çözünürlük bildirmiyorsa) seçim kutusu gösterilmiyor.
+function fillQualities(qualities) {
+  el.quality.replaceChildren(new Option("En yüksek", ""));
+  qualities.forEach((q) => {
+    const label = q.height + "p" + (q.size ? "  ·  ~" + mb(q.size) : "");
+    el.quality.appendChild(new Option(label, String(q.height)));
+  });
+  el.qualityWrap.hidden = qualities.length < 2;
 }
 
 el.go.addEventListener("click", start);
@@ -451,7 +478,8 @@ async function start() {
   paint(null);
 
   try {
-    const res = await postJson("/api/download", { url, format });
+    const quality = format === "mp4" && el.quality.value ? Number(el.quality.value) : null;
+    const res = await postJson("/api/download", { url, format, quality });
     if (!res.ok) throw new Error((await res.json()).detail || "İstek reddedildi.");
     const { job_id } = await res.json();
     follow(job_id);
@@ -548,6 +576,7 @@ function reset() {
   el.again.hidden = true;
   el.state.classList.remove("bad");
   el.url.value = "";
+  fillQualities([]);
   el.url.focus();
 }
 </script>

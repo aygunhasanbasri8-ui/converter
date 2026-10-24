@@ -33,6 +33,52 @@ FORMAT_OPTIONS: dict[str, dict[str, Any]] = {
     },
 }
 
+
+def mp4_format(max_height: int | None) -> str:
+    """Seçilen yüksekliği aşmayan en iyi video + ses; hiçbiri yoksa yine de en iyisi.
+
+    Sondaki "/b" bilerek: bazı sitelerde yükseklik bilgisi yok, filtre her şeyi
+    elerse indirme hata vermek yerine eldeki en iyi dosyayı alsın.
+    """
+    if not max_height:
+        return FORMAT_OPTIONS["mp4"]["format"]
+    h = f"[height<={max_height}]"
+    return f"bv*{h}[ext=mp4]+ba[ext=m4a]/bv*{h}+ba/b{h}[ext=mp4]/b{h}/b"
+
+
+def available_qualities(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Videonun sunduğu yükseklikler (büyükten küçüğe) ve tahmini dosya boyutu."""
+    formats = data.get("formats") or []
+
+    def size(f: dict[str, Any]) -> int | None:
+        return f.get("filesize") or f.get("filesize_approx")
+
+    audio_sizes = [
+        size(f)
+        for f in formats
+        if f.get("vcodec") == "none" and f.get("acodec") not in (None, "none") and size(f)
+    ]
+    audio = max(audio_sizes) if audio_sizes else 0
+
+    best: dict[int, dict[str, Any]] = {}
+    for f in formats:
+        height = f.get("height")
+        if not height or f.get("vcodec") in (None, "none"):
+            continue
+        current = best.get(height)
+        if current is None or (f.get("tbr") or 0) > (current.get("tbr") or 0):
+            best[height] = f
+
+    qualities = []
+    for height in sorted(best, reverse=True):
+        video = size(best[height])
+        # Ses ayrı bir akışsa birleştirince eklenecek; tek dosyalık biçimde zaten içinde
+        has_audio = best[height].get("acodec") not in (None, "none")
+        total = video + (0 if has_audio else audio) if video else None
+        qualities.append({"height": height, "size": total})
+    return qualities
+
+
 # İndirme yarıda kalırsa geride bunlar kalıyor, çıktı sanılmasın.
 PARTIAL_SUFFIXES = {".part", ".ytdl", ".tmp"}
 
@@ -45,12 +91,12 @@ class DownloadService:
     def inspect(self, url: str) -> dict[str, Any]:
         return _first_entry(_extract(url, {}, download=False))
 
-    def download(self, job_id: str, url: str, output_format: str) -> None:
+    def download(self, job_id: str, url: str, output_format: str, max_height: int | None = None) -> None:
         target_dir = self._download_dir / job_id
         target_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            data = _extract(url, self._options(target_dir, output_format, job_id), download=True)
+            data = _extract(url, self._options(target_dir, output_format, job_id, max_height), download=True)
 
             output = _find_output(target_dir, output_format)
             if output is None:
@@ -69,7 +115,9 @@ class DownloadService:
             shutil.rmtree(target_dir, ignore_errors=True)
             self._jobs.update(job_id, state="error", error=readable_error(error))
 
-    def _options(self, target_dir: Path, output_format: str, job_id: str) -> dict[str, Any]:
+    def _options(
+        self, target_dir: Path, output_format: str, job_id: str, max_height: int | None = None
+    ) -> dict[str, Any]:
         def progress_hook(data: dict[str, Any]) -> None:
             status = data.get("status")
             if status == "downloading":
@@ -89,6 +137,8 @@ class DownloadService:
 
         # Sabit tablo işler arasında paylaşılıyor, yt-dlp'ye kopyası gitsin.
         format_options = copy.deepcopy(FORMAT_OPTIONS["mp3" if output_format == "mp3" else "mp4"])
+        if output_format == "mp4":
+            format_options["format"] = mp4_format(max_height)
         return {
             "outtmpl": str(target_dir / "%(title).150B.%(ext)s"),
             "windowsfilenames": True,
