@@ -1,6 +1,5 @@
 import re
 
-
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -31,8 +30,14 @@ def readable_error(error: Exception) -> str:
         (("private video", "members-only"), "Video özel ya da üyelere kapalı, indirilemiyor."),
         (("video unavailable", "removed"), "Video yayından kalkmış görünüyor."),
         (("sign in", "confirm your age", "cookies"), "Bu içerik oturum açmayı gerektiriyor, indirilemiyor."),
-        (("requested format is not available",), "Seçtiğin biçim bu içerik için mevcut değil. Diğer biçimi dene."),
-        (("unable to download", "timed out", "connection"), "Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene."),
+        (
+            ("requested format is not available",),
+            "Seçtiğin biçim bu içerik için mevcut değil. Diğer biçimi dene.",
+        ),
+        (
+            ("unable to download", "timed out", "connection"),
+            "Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.",
+        ),
     )
     for indicators, user_message in messages:
         if any(indicator in message for indicator in indicators):

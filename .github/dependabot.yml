@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # yt-dlp sitelerdeki değişikliklere hızlı ayak uydurmak zorunda, eskiyince indirmeler bozuluyor
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

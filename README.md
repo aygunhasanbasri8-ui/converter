@@ -2,6 +2,8 @@
 
 English | [Türkçe](README.tr.md)
 
+[![CI](https://github.com/aygunhasanbasri8-ui/converter/actions/workflows/ci.yml/badge.svg)](https://github.com/aygunhasanbasri8-ui/converter/actions/workflows/ci.yml)
+
 A small app that downloads the video you give a link to as **MP4** (video + audio) or
 **MP3** (192 kbps audio), running entirely on your own machine. yt-dlp does the downloading
 and ffmpeg does the conversion.
@@ -42,6 +44,8 @@ For the tests:
 ```bash
 python -m unittest discover -s tests
 ```
+
+Style is checked with ruff (`ruff check . && ruff format --check .`); GitHub Actions runs both and the tests on every push and pull request, and Dependabot keeps yt-dlp up to date.
 
 ## HTTP endpoints
 

@@ -3,7 +3,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from app.downloader import _first_entry, _find_output
+from app.downloader import _find_output, _first_entry
 from app.errors import readable_error
 from app.jobs import JobStore
 

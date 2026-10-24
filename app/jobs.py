@@ -3,9 +3,10 @@ from __future__ import annotations
 import shutil
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import Executor
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 class JobStore:
