@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import shutil
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 
 from .config import (
     CLEANUP_INTERVAL_SECONDS,
@@ -81,14 +84,60 @@ def start_download(request: DownloadRequest) -> dict[str, str]:
     return {"job_id": job_id}
 
 
+def _public(job: dict[str, Any]) -> dict[str, Any]:
+    # Sunucudaki tam yol istemciyi ilgilendirmiyor.
+    job.pop("path", None)
+    return job
+
+
 @app.get("/api/progress/{job_id}")
 def progress(job_id: str) -> dict[str, Any]:
     job = jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="İş bulunamadı.")
-    # Sunucudaki tam yol istemciyi ilgilendirmiyor.
-    job.pop("path", None)
-    return job
+    return _public(job)
+
+
+EVENT_CHECK_SECONDS = 0.25
+EVENT_KEEPALIVE_SECONDS = 15.0
+FINISHED_STATES = ("ready", "error")
+
+
+@app.get("/api/events/{job_id}")
+async def events(job_id: str, request: Request) -> StreamingResponse:
+    """İlerlemeyi Server-Sent Events ile iter; istemci her 600 ms'de sormak zorunda kalmaz.
+
+    Yalnızca iş değiştiğinde olay gönderiliyor. İş bitince akış kapanıyor.
+    """
+    if jobs.get(job_id) is None:
+        raise HTTPException(status_code=404, detail="İş bulunamadı.")
+
+    async def stream():
+        last_update = None
+        last_sent = time.monotonic()
+        while not await request.is_disconnected():
+            job = jobs.get(job_id)
+            if job is None:
+                # Süresi dolup silindi; istemci yoklamaya düşmesin diye hata olarak bildir
+                yield "data: " + json.dumps({"state": "error", "error": "İş bulunamadı."}) + "\n\n"
+                return
+            if job["updated_at"] != last_update:
+                last_update = job["updated_at"]
+                last_sent = time.monotonic()
+                yield "data: " + json.dumps(_public(job), ensure_ascii=False) + "\n\n"
+                if job["state"] in FINISHED_STATES:
+                    return
+            elif time.monotonic() - last_sent > EVENT_KEEPALIVE_SECONDS:
+                # Proxy'ler boşta kalan bağlantıyı kesmesin
+                last_sent = time.monotonic()
+                yield ": ping\n\n"
+            await asyncio.sleep(EVENT_CHECK_SECONDS)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/file/{job_id}")

@@ -354,6 +354,7 @@ const el = {
 
 let format = "mp4";
 let poller = null;
+let source = null;
 let infoTimer = null;
 
 // Sabit yükseklikler, ama düz rampa yerine ses dalgası gibi dursun diye
@@ -453,10 +454,35 @@ async function start() {
     const res = await postJson("/api/download", { url, format });
     if (!res.ok) throw new Error((await res.json()).detail || "İstek reddedildi.");
     const { job_id } = await res.json();
-    poller = setInterval(() => track(job_id), POLL_MS);
+    follow(job_id);
   } catch (err) {
     fail(err.message);
   }
+}
+
+// Sunucu ilerlemeyi SSE ile gönderiyor; tarayıcı ya da araya giren bir proxy
+// desteklemezse eski yoklamaya düşüyoruz.
+function follow(jobId) {
+  if (!window.EventSource) {
+    poller = setInterval(() => track(jobId), POLL_MS);
+    return;
+  }
+  let finished = false;
+  source = new EventSource("/api/events/" + jobId);
+  source.onmessage = (e) => {
+    const job = JSON.parse(e.data);
+    finished = job.state === "ready" || job.state === "error";
+    render(jobId, job);
+  };
+  source.onerror = () => {
+    stopTracking();
+    if (!finished) poller = setInterval(() => track(jobId), POLL_MS);
+  };
+}
+
+function stopTracking() {
+  clearInterval(poller);
+  if (source) { source.close(); source = null; }
 }
 
 async function track(jobId) {
@@ -468,7 +494,10 @@ async function track(jobId) {
   } catch (err) {
     return fail(err.message);
   }
+  render(jobId, job);
+}
 
+function render(jobId, job) {
   if (job.state === "downloading") {
     el.state.textContent = "İndiriliyor";
     paint(job.percent);
@@ -484,7 +513,7 @@ async function track(jobId) {
     el.rate.textContent = "";
     paint(null);
   } else if (job.state === "ready") {
-    clearInterval(poller);
+    stopTracking();
     paint(100);
     el.state.textContent = "Hazır";
     el.pct.textContent = "%100";
@@ -502,7 +531,7 @@ async function track(jobId) {
 }
 
 function fail(message) {
-  clearInterval(poller);
+  stopTracking();
   paint(0);
   el.state.textContent = message;
   el.state.classList.add("bad");
