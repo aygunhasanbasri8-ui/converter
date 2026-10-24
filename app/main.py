@@ -3,8 +3,8 @@ from __future__ import annotations
 import shutil
 import threading
 import uuid
-from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -23,7 +23,6 @@ from .errors import readable_error
 from .jobs import JobStore
 from .models import DownloadRequest, InfoRequest
 
-
 ensure_directories()
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="download")
 jobs = JobStore(DOWNLOAD_DIR, executor, JOB_TTL_SECONDS)
@@ -38,9 +37,7 @@ def cleanup_worker(stop_event: threading.Event) -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     stop_event = threading.Event()
-    cleanup_thread = threading.Thread(
-        target=cleanup_worker, args=(stop_event,), name="cleanup", daemon=True
-    )
+    cleanup_thread = threading.Thread(target=cleanup_worker, args=(stop_event,), name="cleanup", daemon=True)
     cleanup_thread.start()
     if shutil.which("ffmpeg") is None:
         print("ffmpeg bulunamadı. MP3 dönüşümü ve MP4 birleştirmesi çalışmaz.")

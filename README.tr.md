@@ -2,6 +2,8 @@
 
 [English](README.md) | Türkçe
 
+[![CI](https://github.com/aygunhasanbasri8-ui/converter/actions/workflows/ci.yml/badge.svg)](https://github.com/aygunhasanbasri8-ui/converter/actions/workflows/ci.yml)
+
 Bağlantısını verdiğin videoyu **MP4** (video + ses) ya da **MP3** (192 kbps ses)
 olarak indiren, tamamen kendi makinende çalışan küçük bir uygulama. İndirmeyi
 yt-dlp, dönüştürmeyi ffmpeg yapıyor.
@@ -43,6 +45,8 @@ Testler için:
 ```bash
 python -m unittest discover -s tests
 ```
+
+Kod stili ruff ile denetleniyor (`ruff check . && ruff format --check .`); GitHub Actions her push ve pull request'te ikisini ve testleri çalıştırıyor, Dependabot da yt-dlp'yi güncel tutuyor.
 
 ## HTTP uçları
 
