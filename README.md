@@ -55,6 +55,7 @@ Style is checked with ruff (`ruff check . && ruff format --check .`); GitHub Act
 | POST | `/api/info` | Body: `{"url": ...}`. Returns title, uploader, duration and thumbnail |
 | POST | `/api/download` | Body: `{"url": ..., "format": "mp4" \| "mp3"}`. Returns `{"job_id": ...}` |
 | GET | `/api/progress/{job_id}` | Job state (`queued`, `downloading`, `processing`, `ready`, `error`) and progress |
+| GET | `/api/events/{job_id}` | The same job record as a Server-Sent Events stream: one event per change, closed when the job is `ready` or `error` |
 | GET | `/api/file/{job_id}` | Downloads the finished file |
 
 ## Structure
@@ -75,7 +76,9 @@ Every download lands in `downloads/<job_id>/` and is deleted after an hour. At m
 
 1. When a link is pasted, `POST /api/info` fetches the title, duration and thumbnail.
 2. `POST /api/download` opens a job record and hands the download to the worker pool.
-3. The UI polls `GET /api/progress/{job_id}` every 600 ms.
+3. The UI follows `GET /api/events/{job_id}` (Server-Sent Events): the server pushes each change, so there
+   are no repeated requests. If the browser or a proxy in between cannot keep the stream open, it falls back
+   to polling `GET /api/progress/{job_id}` every 600 ms.
 4. When the job finishes, the file is saved through `GET /api/file/{job_id}`.
 
 When MP4 is selected but the source has no MP4, yt-dlp downloads the best available format;

@@ -56,6 +56,7 @@ Kod stili ruff ile denetleniyor (`ruff check . && ruff format --check .`); GitHu
 | POST | `/api/info` | Gövde: `{"url": ...}`. Başlık, yükleyen, süre ve kapak görselini döner |
 | POST | `/api/download` | Gövde: `{"url": ..., "format": "mp4" \| "mp3"}`. `{"job_id": ...}` döner |
 | GET | `/api/progress/{job_id}` | İşin durumu (`queued`, `downloading`, `processing`, `ready`, `error`) ve ilerleme |
+| GET | `/api/events/{job_id}` | Aynı iş kaydı Server-Sent Events akışı olarak: her değişiklikte bir olay, iş `ready` ya da `error` olunca kapanır |
 | GET | `/api/file/{job_id}` | Hazır dosyayı indirir |
 
 ## Yapı
@@ -76,7 +77,9 @@ anda en fazla `MAX_WORKERS` kadar indirme çalışır, fazlası sırada bekler.
 
 1. Bağlantı yapıştırılınca `POST /api/info` başlık, süre ve kapak görselini getirir.
 2. `POST /api/download` bir iş kaydı açar ve indirmeyi worker havuzuna verir.
-3. Arayüz `GET /api/progress/{job_id}` ucunu 600 ms'de bir yoklar.
+3. Arayüz `GET /api/events/{job_id}` akışını (Server-Sent Events) izler: sunucu her değişikliği kendisi
+   gönderir, tekrar tekrar istek atılmaz. Tarayıcı ya da aradaki bir proxy akışı açık tutamazsa
+   `GET /api/progress/{job_id}` ucunu 600 ms'de bir yoklamaya düşer.
 4. İş bitince dosya `GET /api/file/{job_id}` üzerinden kaydedilir.
 
 MP4 seçiliyken kaynakta MP4 yoksa yt-dlp eldeki en iyi biçimi indirir; dosya
