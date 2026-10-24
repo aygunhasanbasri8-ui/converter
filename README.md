@@ -1,76 +1,104 @@
-# Video İndirici
+# Video Downloader
 
-Bağlantısını verdiğin videoyu **MP4** (video + ses) ya da **MP3** (192 kbps ses)
-olarak indiren, tamamen kendi makinende çalışan küçük bir uygulama. İndirmeyi
-yt-dlp, dönüştürmeyi ffmpeg yapıyor.
+English | [Türkçe](README.tr.md)
 
-## Kurulum
+A small app that downloads the video you give a link to as **MP4** (video + audio) or
+**MP3** (192 kbps audio), running entirely on your own machine. yt-dlp does the downloading
+and ffmpeg does the conversion.
 
-ffmpeg şart; MP3 dönüşümü ve MP4'te ses ile görüntünün birleştirilmesi onunla
-yapılıyor.
+## Features
 
-| Sistem | Komut |
+- Download from a link as MP4 (best video + audio) or MP3 (192 kbps).
+- Shows the title, uploader, duration and thumbnail as soon as a link is pasted.
+- Download progress, speed and remaining time; the MP3 conversion and MP4 merge steps are shown separately.
+- Jobs run in the background in a worker pool; extra ones wait in a queue.
+- Finished files are deleted automatically after one hour.
+- Clear error messages (private video, unsupported link, missing ffmpeg, etc.). The messages are in Turkish.
+- Listens on `127.0.0.1` only.
+
+Stack: FastAPI, Uvicorn, yt-dlp, pydantic, ffmpeg.
+
+## Installation
+
+ffmpeg is required; MP3 conversion and merging audio with video for MP4 are done with it.
+
+| System | Command |
 |---|---|
 | Windows | `winget install Gyan.FFmpeg` |
 | macOS | `brew install ffmpeg` |
 | Ubuntu | `sudo apt install ffmpeg` |
 
-Sonra Python paketlerini kurup uygulamayı başlat:
+Then install the Python packages and start the app:
 
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-Tarayıcıda `http://127.0.0.1:8000` adresini aç.
+Open `http://127.0.0.1:8000` in the browser.
 
-Testler için:
+For the tests:
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-## Yapı
+## HTTP endpoints
 
-- `main.py`: Uvicorn'u başlatır.
-- `app/main.py`: FastAPI uygulaması ve HTTP uçları.
-- `app/downloader.py`: yt-dlp ayarları, indirme ve çıktı dosyasının bulunması.
-- `app/jobs.py`: İş kayıtları, worker havuzu ve eski dosyaların temizliği.
-- `app/models.py`: İstek modelleri ve URL doğrulaması.
-- `app/errors.py`: yt-dlp hatalarını kullanıcının anlayacağı mesajlara çevirir.
-- `app/config.py`: Dizinler, süreler ve worker sayısı.
-- `static/index.html`: Arayüz.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | The UI |
+| POST | `/api/info` | Body: `{"url": ...}`. Returns title, uploader, duration and thumbnail |
+| POST | `/api/download` | Body: `{"url": ..., "format": "mp4" \| "mp3"}`. Returns `{"job_id": ...}` |
+| GET | `/api/progress/{job_id}` | Job state (`queued`, `downloading`, `processing`, `ready`, `error`) and progress |
+| GET | `/api/file/{job_id}` | Downloads the finished file |
 
-Her indirme `downloads/<job_id>/` altına iner ve bir saat sonra silinir. Aynı
-anda en fazla `MAX_WORKERS` kadar indirme çalışır, fazlası sırada bekler.
+## Structure
 
-## Akış
+- `main.py`: starts Uvicorn.
+- `app/main.py`: the FastAPI app and the HTTP endpoints.
+- `app/downloader.py`: yt-dlp options, downloading and locating the output file.
+- `app/jobs.py`: job records, the worker pool and cleanup of old files.
+- `app/models.py`: request models and URL validation.
+- `app/errors.py`: turns yt-dlp errors into messages the user can understand.
+- `app/config.py`: directories, durations and the worker count.
+- `static/index.html`: the UI.
 
-1. Bağlantı yapıştırılınca `POST /api/info` başlık, süre ve kapak görselini getirir.
-2. `POST /api/download` bir iş kaydı açar ve indirmeyi worker havuzuna verir.
-3. Arayüz `GET /api/progress/{job_id}` ucunu 600 ms'de bir yoklar.
-4. İş bitince dosya `GET /api/file/{job_id}` üzerinden kaydedilir.
+Every download lands in `downloads/<job_id>/` and is deleted after an hour. At most
+`MAX_WORKERS` downloads run at the same time; the rest wait in a queue.
 
-MP4 seçiliyken kaynakta MP4 yoksa yt-dlp eldeki en iyi biçimi indirir; dosya
-uzantısı o yüzden farklı olabilir.
+## Flow
 
-## Ayarlar
+1. When a link is pasted, `POST /api/info` fetches the title, duration and thumbnail.
+2. `POST /api/download` opens a job record and hands the download to the worker pool.
+3. The UI polls `GET /api/progress/{job_id}` every 600 ms.
+4. When the job finishes, the file is saved through `GET /api/file/{job_id}`.
 
-| Ayar | Dosya |
+When MP4 is selected but the source has no MP4, yt-dlp downloads the best available format;
+the file extension may therefore differ.
+
+## Settings
+
+| Setting | File |
 |---|---|
-| MP3 bit hızı, MP4 kalite seçimi | `app/downloader.py` |
-| Dosya saklama süresi, worker sayısı | `app/config.py` |
-| Port | `main.py` |
+| MP3 bit rate (192 kbps), MP4 quality selection | `app/downloader.py` |
+| File retention (1 hour), cleanup interval (5 min), worker count (2) | `app/config.py` |
+| Port (8000) | `main.py` |
 
-Sunucu bilerek yalnızca `127.0.0.1` üzerinde dinliyor. Ağa açacaksan önce kimlik
-doğrulama, erişim kontrolü ve daha sıkı kaynak sınırları eklemen gerekir; yoksa
-ağdaki herkes senin makinen üzerinden istediği adrese istek attırabilir.
+The server deliberately listens on `127.0.0.1` only. If you want to expose it to the
+network, you first need to add authentication, access control and tighter resource limits;
+otherwise anyone on the network can make requests to any address through your machine.
 
-## Not
+The UI loads its fonts from Google Fonts, so even though the download itself happens
+locally, a request goes to Google when the page opens.
 
-Sadece sana ait ya da indirilmesine izin verilen içerikler için kullan.
-Platformların kullanım şartlarına ve telif kurallarına uymak senin sorumluluğunda.
+There is currently no CI workflow and no Docker image in the repo.
 
-## Lisans
+## Note
+
+Use it only for content that belongs to you or that you are allowed to download. Following
+the platforms' terms of service and copyright rules is your responsibility.
+
+## License
 
 [MIT](LICENSE)
