@@ -1,10 +1,10 @@
 # Bağımlılıklar ayrı aşamada derleniyor; son imajda derleyici ve pip önbelleği yok.
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /build
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 # MP3 dönüşümü ve MP4 birleştirme için ffmpeg şart
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
